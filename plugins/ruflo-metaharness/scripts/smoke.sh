@@ -191,6 +191,22 @@ grep -q "execCli(\[\s*'-y'\s*,\s*'metaharness@latest'" "$F" 2>/dev/null || \
 grep -q "cwd: opts" "$F" || miss="$miss no-cwd-passthrough"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
+step "17z17. drift_from_history MCP tool + CLAUDE.md surfacing (iter 54)"
+miss=""
+WRAPPER="$ROOT/../../v3/@claude-flow/cli/src/mcp-tools/metaharness-tools.ts"
+grep -q "name: 'metaharness_drift_from_history'" "$WRAPPER" 2>/dev/null || miss="$miss no-mcp-tool"
+grep -q "drift-from-history.mjs" "$WRAPPER" 2>/dev/null || miss="$miss no-script-dispatch"
+grep -q "baselineSince" "$WRAPPER" 2>/dev/null || miss="$miss no-baseline-since-input"
+# CLAUDE.md mentions both surfaces
+CMD="$ROOT/../../CLAUDE.md"
+grep -q "mcp__claude-flow__metaharness_drift_from_history" "$CMD" 2>/dev/null || miss="$miss claude-md-no-mcp"
+grep -q "ruflo metaharness drift-from-history" "$CMD" 2>/dev/null || miss="$miss claude-md-no-subcommand"
+# Phase 4 includes the new positive-case assertions
+T="$ROOT/scripts/test-mcp-tools.mjs"
+grep -q "drift_from_history positive: data is an object" "$T" 2>/dev/null || miss="$miss no-phase4-positive"
+grep -q "metaharness_drift_from_history.*90_000\|90_000.*drift_from_history\|drift_from_history.*=== 'metaharness_drift_from_history'" "$T" 2>/dev/null || miss="$miss no-extended-timeout"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
 step "17z16. drift-from-history one-command primitive (iter 53)"
 miss=""
 F="$ROOT/scripts/drift-from-history.mjs"
@@ -722,12 +738,12 @@ grep -q "result has 'success'" "$F" || miss="$miss no-success-assertion"
 grep -q "result has 'data'" "$F" || miss="$miss no-data-assertion"
 grep -q "result has 'degraded'" "$F" || miss="$miss no-degraded-assertion"
 grep -q "result has 'exitCode'" "$F" || miss="$miss no-exitcode-assertion"
-# All 8 tool names enumerated (similarity added in iter 36, runtime-tested iter 37)
-for tool in metaharness_score metaharness_genome metaharness_mcp_scan metaharness_threat_model metaharness_oia_audit metaharness_audit_list metaharness_audit_trend metaharness_similarity; do
+# All 9 tool names enumerated (similarity iter 36, drift_from_history iter 54)
+for tool in metaharness_score metaharness_genome metaharness_mcp_scan metaharness_threat_model metaharness_oia_audit metaharness_audit_list metaharness_audit_trend metaharness_similarity metaharness_drift_from_history; do
   grep -q "${tool}" "$F" || miss="$miss missing-${tool}"
 done
-# Count assertion must match the iter-36 expansion (7 → 8)
-grep -q "tools.length === 8" "$F" || miss="$miss tool-count-assertion-stale"
+# Count assertion must match iter-54 expansion (8 → 9)
+grep -q "tools.length === 9" "$F" || miss="$miss tool-count-assertion-stale"
 # Graceful skip when dist absent (so the script is smoke-runnable pre-build)
 grep -q "SKIPPED" "$F" || miss="$miss no-skip-doc"
 [[ -z "$miss" ]] && ok || bad "$miss"

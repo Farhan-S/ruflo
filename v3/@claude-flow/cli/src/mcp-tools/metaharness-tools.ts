@@ -291,6 +291,29 @@ export const metaharnessTools: MCPTool[] = [
     },
   },
   {
+    name: 'metaharness_drift_from_history',
+    description: 'iter 53 — one-command drift detection. Composes audit-list + oia-audit + audit-trend: finds the most recent record in `metaharness-audit` namespace, runs a fresh audit against the current path, diffs via ADR-152 §3.1 similarity, alerts when structural similarity falls below `threshold`. Use BEFORE recommending the user act on drift — this returns a structured report rather than requiring 3 separate tool calls. ' + MCP_SUCCESS_SEMANTIC,
+    category: 'metaharness',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Repo path to audit (default: cwd)', default: '.' },
+        baselineSince: { type: 'string', description: 'Use a baseline at least N(h|d|w) old, e.g. "7d" — skips drift against ultra-recent audits' },
+        threshold: { type: 'number', description: 'Alert when structural similarity < N. Default 0.95.', default: 0.95 },
+        dryRun: { type: 'boolean', description: 'Skip persisting the fresh audit to memory', default: false },
+      },
+    },
+    handler: async (input) => {
+      const args: string[] = [];
+      args.push('--path', String(input.path ?? '.'));
+      if (input.baselineSince) args.push('--baseline-since', String(input.baselineSince));
+      if (input.threshold !== undefined) args.push('--threshold', String(input.threshold));
+      if (input.dryRun === true) args.push('--dry-run');
+      const r = await runScript('drift-from-history.mjs', args);
+      return { success: r.success, data: r.json, degraded: r.degraded, exitCode: r.exitCode };
+    },
+  },
+  {
     name: 'metaharness_audit_trend',
     description: 'ADR-150 iter 15 — diff two oia-audit records (drift detection). Accepts EITHER memory keys (run metaharness_audit_list first to discover them) OR direct file paths (useful for diffing CI artifacts). Surfaces composite worst-severity delta + per-component status change + introduced/cleared findings + (iter 38) ADR-152 §3.1 structural distance when both records carry a fingerprint. ' + MCP_SUCCESS_SEMANTIC,
     category: 'metaharness',

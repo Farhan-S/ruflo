@@ -74,7 +74,7 @@ async function main() {
   // ──────────────────────────────────────────────────────────────────
   console.log('Phase 1 — module shape');
   assert(Array.isArray(tools), 'metaharnessTools is an array');
-  assert(tools.length === 8, `8 tools registered (got ${tools.length})`);
+  assert(tools.length === 9, `9 tools registered (got ${tools.length})`);
 
   const expectedNames = new Set([
     'metaharness_score',
@@ -86,6 +86,8 @@ async function main() {
     'metaharness_audit_trend',
     // iter 36 — ADR-152 §3.1 production
     'metaharness_similarity',
+    // iter 54 — one-command drift detection (composes audit-list + oia-audit + audit-trend)
+    'metaharness_drift_from_history',
   ]);
   const actualNames = new Set(tools.map((t) => t.name));
   for (const name of expectedNames) {
@@ -128,11 +130,16 @@ async function main() {
       // the graceful not-found path (matches audit_trend convention).
       input = { aKey: 'harness-fake-a', bKey: 'harness-fake-b' };
     }
+    if (tool.name === 'metaharness_drift_from_history') {
+      // iter 54 — composes 3 subprocesses, needs more time than the default.
+      input = { dryRun: true, threshold: 0.5 };
+    }
 
-    // 30s budget per tool — slow path is npx warmup
+    // 30s budget per tool by default; 90s for chain-tools like drift_from_history.
+    const timeoutMs = tool.name === 'metaharness_drift_from_history' ? 90_000 : 30_000;
     const handlerPromise = tool.handler(input);
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('30s handler timeout')), 30_000));
+      setTimeout(() => reject(new Error(`${timeoutMs / 1000}s handler timeout`)), timeoutMs));
 
     let result;
     let threw = false;
@@ -306,6 +313,29 @@ async function main() {
     assert(rFiles.data?.delta?.structuralDistance?.verdict === 'near-identical',
       `audit_trend file-input path: identical fingerprints → near-identical (got ${rFiles.data?.delta?.structuralDistance?.verdict})`);
 
+    // iter 54 — metaharness_drift_from_history positive case
+    const driftTool = tools.find((t) => t.name === 'metaharness_drift_from_history');
+    if (driftTool) {
+      const r54 = await driftTool.handler({ path: '.', dryRun: true, threshold: 0.5 });
+      if (!r54.degraded) {
+        assert(typeof r54.data === 'object' && r54.data !== null,
+          'drift_from_history positive: data is an object');
+        // Either it produced the structured drift report OR the no-history error
+        const isOk = r54.data?.command === 'drift-from-history';
+        const isNoHistory = typeof r54.data?.error === 'string' && r54.data.error.includes('no audit records');
+        assert(isOk || isNoHistory,
+          `drift_from_history positive: structured report OR no-history error (got ${JSON.stringify(r54.data).slice(0,80)})`);
+        if (isOk) {
+          assert(typeof r54.data.baseline?.key === 'string',
+            'drift_from_history: baseline.key is a string');
+          assert(typeof r54.data.alert?.threshold === 'number',
+            'drift_from_history: alert.threshold echoed numerically');
+        }
+      } else {
+        console.log(`    ⊘ drift_from_history: degraded (metaharness or memory absent)`);
+      }
+    }
+
     const r = await trendTool.handler({ baselineKey: 'missing-X', currentKey: 'missing-Y' });
     assert(r.exitCode === 2,
       'audit_trend bad-keys path exits 2 (script-level guard fires)');
@@ -327,7 +357,7 @@ async function main() {
     for (const f of failures) console.log(`  - ${f}`);
     process.exit(1);
   }
-  console.log('\n✓ All 8 MCP tools satisfy the runtime contract.');
+  console.log('\n✓ All 9 MCP tools satisfy the runtime contract.');
 }
 
 main().catch((e) => {

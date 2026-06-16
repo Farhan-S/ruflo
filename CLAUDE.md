@@ -1133,6 +1133,8 @@ npx ruflo metaharness audit-trend \              # diff two audits (drift)
   --alert-on-distance-below 0.85               # iter 38 — structural-distance gate (ADR-152 §3.1)
 npx ruflo metaharness similarity \               # iter 36 — ADR-152 §3.1 weighted similarity
   --a a.json --b b.json [--per-dimension] [--alert-below 0.5]
+npx ruflo metaharness drift-from-history \       # iter 53 — 1-command drift (composes 3 primitives)
+  [--baseline-since 7d] [--threshold 0.95] [--dry-run]
 npx ruflo metaharness mint --name foo --template vertical:coding --confirm
 
 # Dedicated command
@@ -1151,6 +1153,7 @@ mcp__claude-flow__metaharness_oia_audit
 mcp__claude-flow__metaharness_audit_list
 mcp__claude-flow__metaharness_audit_trend
 mcp__claude-flow__metaharness_similarity          # iter 36 — ADR-152 §3.1 genome similarity
+mcp__claude-flow__metaharness_drift_from_history  # iter 53 — 1-command drift detection
 ```
 
 ### Routing integration (ADR-148/149)
