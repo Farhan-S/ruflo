@@ -191,6 +191,22 @@ grep -q "execCli(\[\s*'-y'\s*,\s*'metaharness@latest'" "$F" 2>/dev/null || \
 grep -q "cwd: opts" "$F" || miss="$miss no-cwd-passthrough"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
+step "17z32. weekly cron computes drift vs prior artifact (iter 69)"
+miss=""
+F="$ROOT/../../.github/workflows/oia-audit-weekly.yml"
+# New drift-detection steps present
+grep -q "Download prior week's audit artifact" "$F" 2>/dev/null || miss="$miss no-download-step"
+grep -q "Compute structural drift vs prior week" "$F" 2>/dev/null || miss="$miss no-drift-step"
+grep -q "Upload drift trend artifact" "$F" 2>/dev/null || miss="$miss no-trend-upload"
+# Uses iter-67 fastest path
+grep -q "drift-from-history.mjs" "$F" 2>/dev/null || miss="$miss no-drift-script"
+grep -q -- "--baseline-file" "$F" 2>/dev/null || miss="$miss no-baseline-file-arg"
+# Has prior-artifact step output
+grep -q "has_prior=true\|has_prior=false" "$F" 2>/dev/null || miss="$miss no-conditional-output"
+# Summary line for visibility
+grep -q "Drift vs prior week" "$F" 2>/dev/null || miss="$miss no-summary-line"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
 step "17z31. roundtrip Stage 8 — drift-from-history end-to-end (iter 68)"
 miss=""
 F="$ROOT/scripts/test-pipeline-roundtrip.mjs"
