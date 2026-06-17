@@ -191,6 +191,38 @@ grep -q "execCli(\[\s*'-y'\s*,\s*'metaharness@latest'" "$F" 2>/dev/null || \
 grep -q "cwd: opts" "$F" || miss="$miss no-cwd-passthrough"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
+step "17z51. all metaharness scripts produce parseable JSON in --format json mode (iter 88)"
+miss=""
+# Codifies iter-87's lesson across the whole script family. Each script
+# is run with --format json (with minimal valid args); stdout must
+# JSON.parse without contamination. Catches the iter-50/iter-86 class
+# of bug (markdown header bleeding into JSON output) BEFORE the
+# downstream `node -e JSON.parse(readFileSync(...))` step fails in CI.
+TMP=$(mktemp -d)
+# Each script needs minimal valid args for the JSON branch.
+# Layout: name|args-with-{tmpdir}-placeholder
+SCRIPT_TESTS=(
+  "oia-audit|--dry-run --format json"
+  "score|--path . --format json"
+  "genome|--path . --format json"
+  "mcp-scan|--path . --format json"
+  "threat-model|--path . --format json"
+  "audit-list|--format json"
+  "bench-similarity|--iters 1000 --format json"
+  "bench-parse-mcp-scan|--iters 1000 --format json"
+)
+for entry in "${SCRIPT_TESTS[@]}"; do
+  name="${entry%%|*}"
+  args="${entry##*|}"
+  outfile="$TMP/${name}.json"
+  node "$ROOT/scripts/${name}.mjs" $args > "$outfile" 2>/dev/null
+  # JSON.parse should succeed
+  node -e "JSON.parse(require('fs').readFileSync('$outfile'))" 2>/dev/null \
+    || miss="$miss ${name}-not-parseable"
+done
+rm -rf "$TMP"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
 step "17z50. bench --format json produces valid JSON + bench-parse wired in CI (iter 87)"
 miss=""
 # Both bench scripts suppress markdown header in --format json mode
