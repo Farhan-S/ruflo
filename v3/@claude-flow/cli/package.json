@@ -82,7 +82,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "node init && tsc",
     "test": "vitest run",
     "test:plugin-store": "npx tsx src/plugins/tests/standalone-test.ts",
     "test:pattern-store": "npx tsx src/transfer/store/tests/standalone-test.ts",
